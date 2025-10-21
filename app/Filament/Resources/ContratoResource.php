@@ -33,10 +33,14 @@ class ContratoResource extends Resource
                     ->label('Título')
                     ->maxLength(255)
                     ->required(),
-                Forms\Components\TextInput::make('siglas')
-                    ->label('Siglas')
-                    ->maxLength(20)
-                    ->required(),
+                Forms\Components\TextInput::make('cotizacion')
+                    ->label('Cotización')
+                    ->placeholder('L3429')
+                    ->required()
+                    ->maxLength(255)
+                    ->helperText('Formato: L + número correlativo (ej. L3429). Debe iniciar con la letra L en mayúscula y continuar solo con dígitos; sin espacios, guiones ni letras adicionales. Es el identificador de la cotización en Legger y debe ser único.')
+                    ->rule('regex:/^L\\d+$/')
+                    ->unique(ignoreRecord: true),
                 Forms\Components\TextInput::make('total_horas')
                     ->numeric()
                     ->label('Total de horas')
@@ -96,9 +100,21 @@ class ContratoResource extends Resource
                     ->visible(fn ($context) => $context === 'view')
                     ->columnSpanFull(),
 
-                Forms\Components\TextInput::make('estado')
-                    ->maxLength(255)
-                    ->label('Estado')
+                Forms\Components\TextInput::make('valor')
+                    ->label('Valor')
+                    ->numeric()
+                    ->required(),
+
+                Forms\Components\TextInput::make('etapa')
+                    ->label('Etapa')
+                    ->maxLength(255),
+
+                Forms\Components\Select::make('estado_factura')
+                    ->label('Estado factura')
+                    ->options([
+                        'Pendiente' => 'Pendiente',
+                        'OK para facturar' => 'OK para facturar',
+                    ])
                     ->required(),
                 // Forms\Components\Select::make('tipo_usuario')
                 //     ->label('Tipo de usuario')
@@ -175,8 +191,6 @@ class ContratoResource extends Resource
                 Tables\Columns\TextColumn::make('total_horas')
                     ->numeric()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('estado')
-                    ->searchable(),
                 Tables\Columns\TextColumn::make('cliente.name') 
                     ->label('Cliente')
                     ->numeric()
@@ -191,6 +205,18 @@ class ContratoResource extends Resource
                             })->implode(', ')
                             : null;
                     }),
+                Tables\Columns\TextColumn::make('cotizacion')
+                    ->label('Cotización')
+                    ->searchable()->sortable(),
+                Tables\Columns\TextColumn::make('valor')
+                    ->label('Valor')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('etapa')
+                    ->label('Etapa')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('estado_factura')
+                    ->label('Estado factura')
+                    ->sortable(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('estado')

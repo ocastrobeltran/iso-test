@@ -33,40 +33,44 @@ class UserResource extends Resource
                     ->email()
                     ->required()
                     ->maxLength(191),
+                // Forms\Components\Select::make('roles')
+                //     ->label('Rol de cuenta/Permisos')
+                //     ->relationship('roles', 'name')
+                //     ->multiple()
+                //     ->preload()
+                //     ->searchable(),
+                // Forms\Components\Select::make('rol_tipo')
+                //     ->label('Rol')
+                //     ->options([
+                //         'Cliente' => 'Cliente',
+                //         'Empleado' => 'Empleado',
+                //     ])
+                //     ->required()
+                //     ->live(),
+
                 Forms\Components\Select::make('roles')
                     ->label('Rol de cuenta/Permisos')
                     ->relationship('roles', 'name')
                     ->multiple()
                     ->preload()
-                    ->searchable(),
-                Forms\Components\Select::make('rol_tipo')
-                    ->label('Rol')
-                    ->options([
-                        'Cliente' => 'Cliente',
-                        'Empleado' => 'Empleado',
-                    ])
-                    ->required()
-                    ->live(),
+                    ->searchable()
+                    ->reactive()
+                    ->afterStateUpdated(function ($state, callable $set) {
+                        // Copia la selección de 'roles' al campo 'rol' automáticamente
+                        $set('rol', $state);
+                    }),
 
-                Forms\Components\Select::make('rol')
-                    ->label('Tipo de Empleado')
-                    ->options([
-                        'Adm. Finanzas' => 'Adm. Finanzas',
-                        'Comercial' => 'Comercial',
-                        'Técnico' => 'Técnico',
-                        'Soporte' => 'Soporte',
-                        'PMO' => 'PMO',
-                        'G. Humanas' => 'G. Humanas',
-                        'QA' => 'QA',
-                        'UX' => 'UX',
-                        'Agencia' => 'Agencia',
-                        'Calidad' => 'Calidad',
-                    ])
-                    ->required()
-                    ->visible(fn ($get) => $get('rol_tipo') === 'Empleado'),
+                // Campo oculto que almacena la selección sincronizada (no visible en create/edit)
                 Forms\Components\Hidden::make('rol')
                     ->default('Cliente')
-                    ->visible(fn ($get) => $get('rol_tipo') === 'Cliente'),
+                    ->reactive()
+                    ->hidden(fn ($get, $livewire) => $livewire instanceof Pages\CreateUser || $livewire instanceof Pages\EditUser),
+
+                // Mostrar en la vista (view) el/los rol(es) seleccionados como texto legible
+                Forms\Components\Placeholder::make('rol_display')
+                    ->label('Rol')
+                    ->content(fn ($record) => $record ? $record->roles->pluck('name')->join(', ') : '')
+                    ->hidden(fn ($get, $livewire) => $livewire instanceof Pages\CreateUser || $livewire instanceof Pages\EditUser),
                 Forms\Components\TextInput::make('carga_horaria_mensual')
                     ->numeric()
                     ->label('Carga horaria mensual (h)')
@@ -75,7 +79,7 @@ class UserResource extends Resource
                 Forms\Components\TextInput::make('clockify_id')
                     ->label('ID Clockify')
                     ->nullable(),
-                Forms\Components\DateTimePicker::make('email_verified_at'),
+                // Forms\Components\DateTimePicker::make('email_verified_at'),
                 Forms\Components\TextInput::make('password')
                     ->password()
                     ->required()

@@ -15,6 +15,8 @@ use Illuminate\Database\Eloquent\Builder;
 use App\Filament\Resources\TicketResource\RelationManagers\HistorialesRelationManager;
 use Filament\Infolists\Components\Section;
 use Filament\Infolists\Components\TextEntry;
+use App\Models\Contrato;
+use Filament\Forms\Components\Select;
 
 class TicketResource extends Resource
 {
@@ -39,24 +41,21 @@ class TicketResource extends Resource
                         Forms\Components\TextInput::make('titulo')
                             ->label('Título')
                             ->maxLength(255)
-                            ->disabled(fn ($context) => $context === 'edit'), // No editable por admin/PM
+                            ->disabled(fn ($context) => $context === 'edit'),
                         Forms\Components\Textarea::make('descripcion')
                             ->label('Descripción')
-                            ->disabled(fn ($context) => $context === 'edit') // No editable por admin/PM
+                            ->disabled(fn ($context) => $context === 'edit')
                             ->columnSpanFull(),
-                        Forms\Components\Select::make('proyecto_id')
-                            ->label('Proyecto')
-                            ->options(Proyecto::all()->pluck('nombre', 'id'))
-                            ->disabled(fn ($context) => in_array($context, ['edit']))
+                        Select::make('contrato_id')
+                            ->label('Contrato')
+                            ->options(Contrato::pluck('siglas','id')
+                                ->map(fn($siglas, $id) => (string) ($siglas ?? "Contrato #{$id}"))
+                                ->filter(fn($label) => $label !== null)
+                                ->toArray())
+                            ->searchable()
                             ->required()
+                            ->reactive()  // Ensure reactivity for dependent fields if needed
                             ->visible(fn ($context) => in_array($context, ['create', 'edit'])),
-
-                        Forms\Components\TextInput::make('proyecto_nombre')
-                            ->label('Proyecto')
-                            ->disabled()
-                            ->dehydrated(false)
-                            ->formatStateUsing(fn ($state, $record) => $record?->proyecto_nombre) // Mostrar nombre del proyecto en vista de ticket
-                            ->visible(fn ($context) => $context === 'view'),
                     ])->columns(2),
 
                 Forms\Components\Section::make('Gestión del Ticket')
@@ -89,7 +88,7 @@ class TicketResource extends Resource
                                     'Comercial',
                                     'Técnico',
                                     'Soporte',
-                                    'PMO',
+                                    'PM',
                                     'G. Humanas',
                                     'QA',
                                     'UX',
@@ -175,17 +174,23 @@ class TicketResource extends Resource
                     ->label('Título')
                     ->searchable()
                     ->sortable(),
-                Tables\Columns\BadgeColumn::make('estado')
-                    ->colors([
-                        'danger' => 'Abierto',
-                        'danger' => 'Devuelto',
-                        'warning' => 'En Progreso',
-                        'success' => 'Resuelto',
-                        'secondary' => 'Cerrado',
-                    ]),
-                Tables\Columns\TextColumn::make('proyecto_nombre')
+                Tables\Columns\TextColumn::make('contrato.siglas')
+                    ->label('Contrato')
+                    ->searchable()
+                    ->sortable()
+                    ->default('—'),
+                Tables\Columns\TextColumn::make('contrato.proyectos.first.nombre')
                     ->label('Proyecto')
-                    ->searchable(),
+                    ->searchable()
+                    ->sortable()
+                    ->default('—')
+                    ->visible(fn ($record) => $record && $record->contrato && $record->contrato->fees->isEmpty()),  // Verifica $record
+                Tables\Columns\TextColumn::make('contrato.fees.first.nombre')
+                    ->label('Fee')
+                    ->searchable()
+                    ->sortable()
+                    ->default('—')
+                    ->visible(fn ($record) => $record && $record->contrato && $record->contrato->fees->isNotEmpty()),  // Verifica $record
                 Tables\Columns\TextColumn::make('empleado_asignado_nombre')
                     ->label('Asignado a')
                     ->searchable(),
@@ -250,7 +255,24 @@ class TicketResource extends Resource
                         TextEntry::make('titulo')->label('Título'),
                         TextEntry::make('descripcion')->label('Descripción')->columnSpanFull(),
                         TextEntry::make('estado')->label('Estado'),
-                        TextEntry::make('proyecto_nombre')->label('Proyecto'),
+                        TextEntry::make('contrato.titulo')
+                            ->label('Contrato')
+                            ->formatStateUsing(function ($state, $record) {
+                                $link = $record->contrato ? url("/admin/resources/contrato/{$record->contrato->id}/view") : null;
+                                if ($link) {
+                                    return "<a href=\"{$link}\" class=\"filament-link\">".e($record->contrato->titulo)."</a>";
+                                }
+                                return $record->contrato->titulo ?? 'Sin contrato';
+                            })
+                            ->html(),
+                        TextEntry::make('contrato.proyectos.nombre')
+                            ->label('Proyecto')
+                            ->default('Sin proyecto')
+                            ->visible(fn ($record) => $record && $record->contrato && $record->contrato->fees->isEmpty()),  // Verifica $record
+                        TextEntry::make('contrato.fees.nombre')
+                            ->label('Fee')
+                            ->default('Sin fee')
+                            ->visible(fn ($record) => $record && $record->contrato && $record->contrato->fees->isNotEmpty()),  // Verifica $record
                         TextEntry::make('empleado_asignado_nombre')->label('Asignado a'),
                     ])
                     ->columns(2)
@@ -322,7 +344,7 @@ class TicketResource extends Resource
                         TextEntry::make('solucion')->label('Solución')->columnSpanFull(),
                         TextEntry::make('comentarios')
                             ->label('Comentarios')
-                            ->html()  // Permite renderizar HTML
+                            ->html()
                             ->columnSpanFull(),
                     ])
                     ->collapsible(),
@@ -343,5 +365,10 @@ class TicketResource extends Resource
                     ->collapsible()
                     ->collapsed(false),
             ]);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with(['contrato.fees', 'contrato.proyectos']);
     }
 }

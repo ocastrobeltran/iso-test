@@ -32,9 +32,9 @@ class TicketObserver
         }
 
         // Cambio de asignación
-        if ($ticket->empleado_asignado_id !== $original['empleado_asignado_id']) {
-            $changes[] = "Empleado asignado cambiado";
-        }
+        // if ($ticket->empleado_asignado_id !== $original['empleado_asignado_id']) {
+        //     $changes[] = "Empleado asignado cambiado";
+        // }
 
         // Cambio en solución
         if ($ticket->solucion !== $original['solucion']) {

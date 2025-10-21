@@ -18,10 +18,12 @@ class CreateTicket extends CreateRecord
     protected function afterCreate(): void
     {
         $ticket = $this->record;
-        $proyectoId = $this->data['proyecto_id'];
 
-        // Asociar el ticket al proyecto
-        $ticket->proyectos()->attach($proyectoId);
+        // Asociar proyecto desde contrato (si existe)
+        $contrato = $ticket->contrato;
+        if ($contrato && $contrato->proyecto) {
+            $ticket->proyectos()->attach($contrato->proyecto->id);
+        }
 
         // Asociar el ticket al usuario autenticado como admin/PM
         $ticket->users()->attach(auth()->id(), ['rol' => 'admin']);

@@ -16,4 +16,9 @@ class ListTickets extends ListRecords
             Actions\CreateAction::make(),
         ];
     }
+
+    protected function getTableQuery(): ?\Illuminate\Database\Eloquent\Builder
+    {
+        return parent::getTableQuery()->with(['contrato.fees', 'contrato.proyectos']);
+    }
 }

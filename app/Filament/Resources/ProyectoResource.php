@@ -15,6 +15,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Filament\Resources\ProyectoResource\RelationManagers\HistorialesRelationManager;
+use App\Filament\Resources\ProyectoResource\RelationManagers\MejorasRelationManager;
 use Filament\Infolists\Components\Section;
 use Filament\Infolists\Components\TextEntry;
 
@@ -103,10 +104,22 @@ class ProyectoResource extends Resource
                 Forms\Components\Select::make('pm_responsable_id')
                     ->label('PM Responsable')
                     ->options(
-                        User::where('rol', 'PMO')->pluck('name', 'id')
+                        User::where('rol', 'PM')->pluck('name', 'id')
                     )
                     ->searchable()
                     ->required(),
+                Forms\Components\Select::make('origen')
+                    ->label('Origen del proyecto')
+                    ->options([
+                        'nuevo' => 'Nuevo',
+                        'mejora_continua' => 'Mejora continua',
+                        'referido' => 'Referido',
+                        'interno' => 'Interno',
+                        'otro' => 'Otro',
+                    ])
+                    ->default('nuevo')
+                    ->required()
+                    ->visible(fn ($context) => in_array($context, ['create', 'edit'])),
                 Forms\Components\Select::make('servicios')
                     ->label('Servicios asociados')
                     ->multiple()
@@ -249,6 +262,16 @@ class ProyectoResource extends Resource
                 //         $record->servicios?->pluck('nombre')->implode(', ') ?: 'Sin servicios'
                 //     )
                 //     ->limit(50),
+                Tables\Columns\TextColumn::make('mejoras_count')
+                    ->label('Mejoras')
+                    ->getStateUsing(fn ($record) => $record->mejoras()->count())
+                    ->sortable()
+                    ->tooltip('Número de mejoras relacionadas al proyecto'),
+
+                Tables\Columns\TextColumn::make('mejoras_latest')
+                    ->label('Última Mejora')
+                    ->getStateUsing(fn ($record) => optional($record->mejoras()->latest('id')->first())->origen ?? \Illuminate\Support\Str::limit(optional($record->mejoras()->latest('id')->first())->descripcion, 40))
+                    ->limit(40),
                 Tables\Columns\TextColumn::make('fecha_inicio')
                     ->date()
                     ->sortable(),
@@ -303,6 +326,7 @@ class ProyectoResource extends Resource
     {
         return [
             HistorialesRelationManager::class,
+            MejorasRelationManager::class,
         ];
     }
 
@@ -364,21 +388,59 @@ class ProyectoResource extends Resource
                     ->columns(2)
                     ->collapsible(),
 
-                Section::make('Mejoras y Origen')
+                Section::make('Origen y Mejoras')
                     ->schema([
-                        TextEntry::make('mejoras_continuas')->label('Mejoras Continuas')->columnSpanFull(),
                         TextEntry::make('origen')->label('Origen del Proyecto'),
-                        TextEntry::make('nps_cliente')->label('NPS Cliente'),
-                        TextEntry::make('riesgos_identificados')->label('Riesgos Identificados'),
-                        TextEntry::make('riesgos_mitigados')->label('Riesgos Mitigados'),
-                        TextEntry::make('fases_planeadas')->label('Fases Planeadas'),
-                        TextEntry::make('fases_entregadas')->label('Fases Entregadas'),
+                        TextEntry::make('mejoras_count')
+                            ->label('Cantidad de mejoras')
+                            ->formatStateUsing(fn ($state, $record) => $record->mejoras()->count()),
+
+                        // TextEntry::make('mejoras_resumen')
+                        //     ->label('Mejoras relacionadas')
+                        //     ->html()
+                        //     ->formatStateUsing(function ($state, $record) {
+                        //         $items = $record->mejoras()->latest('id')->take(10)->get();
+                        //         if ($items->isEmpty()) {
+                        //             return '<div class="text-sm text-gray-500">Sin mejoras registradas</div>';
+                        //         }
+
+                        //         $list = '<ul class="space-y-2">';
+                        //         foreach ($items as $m) {
+                        //             // título: prioridad: usuario.name (si existe) o origen (texto) o descripción corta
+                        //             $titulo = $m->usuario?->name
+                        //                 ?? ($m->origen ? e($m->origen) : null)
+                        //                 ?? e(\Illuminate\Support\Str::limit($m->descripcion ?? '', 80));
+
+                        //             $estado = $m->estado ? '<span class="text-xs text-gray-400"> (' . e($m->estado) . ')</span>' : '';
+                        //             $fecha = $m->fecha_implementacion_real
+                        //                 ?? $m->fecha_implementacion_estimada
+                        //                 ?? $m->fecha_propuesta;
+                        //             $fechaHtml = '';
+                        //             if ($fecha) {
+                        //                 try {
+                        //                     $fechaHtml = '<span class="text-xs text-gray-500"> ' . e(\Carbon\Carbon::parse($fecha)->format('Y-m-d')) . '</span>';
+                        //                 } catch (\Throwable $e) {
+                        //                     $fechaHtml = '<span class="text-xs text-gray-500"> ' . e($fecha) . '</span>';
+                        //                 }
+                        //             }
+
+                        //             $url = url("/admin/resources/mejoras/{$m->id}/view");
+                        //             $list .= "<li><a href=\"{$url}\" class=\"filament-link\">{$titulo}</a>{$estado}{$fechaHtml}</li>";
+                        //         }
+                        //         $list .= '</ul>';
+
+                        //         return $list;
+                        //     })
+                        //     ->columnSpanFull(),
                     ])
                     ->columns(2)
-                    ->collapsible(),
+                    ->collapsible()
+                    ->collapsed(false),
 
                 Section::make('Riesgos y Fases')
                     ->schema([
+                        TextEntry::make('nps_cliente')->label('NPS Cliente'),
+
                         TextEntry::make('riesgos_identificados')->label('Riesgos Identificados'),
                         TextEntry::make('riesgos_mitigados')->label('Riesgos Mitigados'),
                         TextEntry::make('porcentaje_riesgos_mitigados')

@@ -34,12 +34,13 @@ class Contrato extends Model
 	];
 
 	protected $fillable = [
-		'titulo',
-    	'siglas',
-		'total_horas',
-		'estado',
-		'cliente_id'
-	];
+        'titulo',
+        'cotizacion',
+        'valor',
+        'etapa',
+        'estado_factura',
+        'cliente_id',
+    ];
 
 	public function cliente()
     {
@@ -60,5 +61,15 @@ class Contrato extends Model
     public function historiales()
     {
         return $this->morphMany(\App\Models\Historial::class, 'historialable');
+    }
+
+    public function proyectos()
+    {
+        return $this->belongsToMany(\App\Models\Proyecto::class, 'proyecto_contrato', 'contrato_id', 'proyecto_id');
+    }
+
+    public function fees()
+    {
+        return $this->belongsToMany(\App\Models\Fee::class, 'fee_contrato', 'contrato_id', 'fee_id');
     }
 }

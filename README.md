@@ -89,5 +89,4 @@ php artisan code:models --table=ticket |
 php artisan code:models --table=ticket_detalleconsumo |
 php artisan code:models --table=ticket_servicio |
 php artisan code:models --table=ticket_usuario |
-php artisan code:models --table=usuario# iso-test
-# iso-test
+php artisan code:models --table=usuario

@@ -15,7 +15,8 @@ class Mejora extends Model
         'fecha_implementacion_estimada' => 'date',
         'fecha_implementacion_real' => 'date',
         'proyecto_id' => 'int',
-        'origen' => 'int'
+        'usuario_id' => 'int',
+        // 'origen' => 'int'
     ];
 
     protected $fillable = [
@@ -30,7 +31,8 @@ class Mejora extends Model
         'prioridad',
         'fecha_implementacion_estimada',
         'fecha_implementacion_real',
-        'observaciones'
+        'observaciones',
+        'usuario_id',
     ];
 
     public function proyecto()
@@ -40,7 +42,7 @@ class Mejora extends Model
 
     public function usuario()
     {
-        return $this->belongsTo(\App\Models\User::class, 'origen');
+        return $this->belongsTo(\App\Models\User::class, 'usuario_id');
     }
 
     public function scopeActivas($query)

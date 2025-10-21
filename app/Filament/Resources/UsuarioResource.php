@@ -44,7 +44,7 @@ class UsuarioResource extends Resource
                         'Comercial' => 'Comercial',
                         'Técnico' => 'Técnico',
                         'Soporte' => 'Soporte',
-                        'PMO' => 'PMO',
+                        'PM' => 'PM',
                         'G. Humanas' => 'G. Humanas',
                         'QA' => 'QA',
                         'UX' => 'UX',

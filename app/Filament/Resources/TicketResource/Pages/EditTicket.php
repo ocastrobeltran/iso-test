@@ -5,6 +5,7 @@ namespace App\Filament\Resources\TicketResource\Pages;
 use App\Filament\Resources\TicketResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Database\Eloquent\Model;
 
 class EditTicket extends EditRecord
 {
@@ -14,7 +15,7 @@ class EditTicket extends EditRecord
     {
         return [
             Actions\ViewAction::make(),
-            Actions\DeleteAction::make(),
+            // Actions\DeleteAction::make(),
         ];
     }
 
@@ -50,9 +51,12 @@ class EditTicket extends EditRecord
 
     protected function afterSave(): void
     {
-        $proyectoId = $this->data['proyecto_id'] ?? null;
-        if ($proyectoId) {
-            $this->record->proyectos()->sync([$proyectoId]);
+        // Asociar proyecto desde contrato (si existe)
+        $contrato = $this->record->contrato;
+        if ($contrato && $contrato->proyecto) {
+            $this->record->proyectos()->sync([$contrato->proyecto->id]);
+        } else {
+            $this->record->proyectos()->detach();
         }
 
         $empleadoId = $this->data['empleado_asignado_id'] ?? null;
@@ -90,5 +94,10 @@ class EditTicket extends EditRecord
     protected function getRedirectUrl(): string
     {
         return static::getResource()::getUrl('index');
+    }
+
+    protected function resolveRecord($key): Model
+    {
+        return static::getModel()::with(['contrato.fees', 'contrato.proyectos'])->findOrFail($key);
     }
 }

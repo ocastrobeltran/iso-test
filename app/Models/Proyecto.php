@@ -142,7 +142,7 @@ class Proyecto extends Model
 
 	public function mejoras()
 	{
-		return $this->hasMany(Mejora::class);
+		return $this->hasMany(Mejora::class, 'proyecto_id');
 	}
 
 	// Relación uno a uno con contrato principal
@@ -157,10 +157,10 @@ class Proyecto extends Model
         return $this->belongsTo(\App\Models\User::class, 'pm_responsable_id');
     }
 
-	// public function contratos()
-	// {
-	// 	return $this->belongsToMany(\App\Models\Contrato::class, 'proyecto_contrato', 'proyecto_id', 'contrato_id');
-	// }
+	public function contratos()
+    {
+        return $this->belongsToMany(\App\Models\Contrato::class, 'proyecto_contrato', 'proyecto_id', 'contrato_id');
+    }
 
 	public function detalleconsumos()
 	{
@@ -222,5 +222,42 @@ class Proyecto extends Model
             return round(($this->fases_entregadas / $this->fases_planeadas) * 100, 1);
         }
         return null;
+    }
+
+    public function getMejorasCountAttribute()
+    {
+        return $this->mejoras()->count();
+    }
+
+    /**
+     * Resumen HTML compacto de las últimas mejoras (para usar en infolist)
+     */
+    public function getMejorasResumenHtmlAttribute()
+    {
+        $items = $this->mejoras()->latest('id')->take(10)->get();
+        if ($items->isEmpty()) {
+            return null;
+        }
+
+        $html = '<ul class="space-y-2">';
+        foreach ($items as $m) {
+            $title = e($m->origen ?? \Illuminate\Support\Str::limit($m->descripcion ?? '', 80));
+            $estado = $m->estado ? '<span class="text-sm text-gray-400">(' . e($m->estado) . ')</span>' : '';
+            $date = $m->fecha_implementacion_real ?? $m->fecha_implementacion_estimada ?? $m->fecha_propuesta;
+            if ($date) {
+                try {
+                    $date = '<span class="text-xs text-gray-500"> ' . e(\Carbon\Carbon::parse($date)->format('Y-m-d')) . '</span>';
+                } catch (\Throwable $e) {
+                    $date = '<span class="text-xs text-gray-500"> ' . e($date) . '</span>';
+                }
+            } else {
+                $date = '';
+            }
+
+            $html .= "<li>{$title} {$estado} {$date}</li>";
+        }
+        $html .= '</ul>';
+
+        return $html;
     }
 }

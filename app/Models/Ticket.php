@@ -49,6 +49,7 @@ class Ticket extends Model
         'titulo',
         'descripcion',
         'estado',
+        'contrato_id',
         'fecha_creacion',
         'fecha_asignacion',
         'fecha_cierre',
@@ -220,5 +221,53 @@ class Ticket extends Model
             $contenido = $comentario['contenido'] ?? '';
             return "<b>{$fecha}</b> [{$usuario_nombre}]: {$contenido} <br>";
         })->implode('<br>');
+    }
+
+    // nuevo: relación directa por FK (no rompe la relación many-to-many existente)
+    public function proyectoFk(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Proyecto::class, 'proyecto_id');
+    }
+
+    public function fee(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Fee::class, 'fee_id');
+    }
+
+    /**
+     * Devuelve el tipo asociado: 'proyecto' | 'fee' | null
+     */
+    public function getAsociadoTipoAttribute()
+    {
+        if ($this->proyecto_id) {
+            return 'proyecto';
+        }
+        if ($this->fee_id) {
+            return 'fee';
+        }
+        return null;
+    }
+
+    public function contrato(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Contrato::class, 'contrato_id');
+    }
+
+    /**
+     * Nombre del asociado (prioriza FK directo; si no existe, intenta usar la relación many-to-many antigua)
+     */
+    public function getAsociadoNombreAttribute()
+    {
+        return $this->contrato?->titulo
+            ?? $this->proyectos()->first()?->nombre
+            ?? 'Sin asociado';
+    }
+
+    /**
+     * URI o tipo-link para view (opcional)
+     */
+    public function getAsociadoLinkAttribute()
+    {
+        return $this->contrato ? url("/admin/resources/contrato/{$this->contrato->id}/view") : null;
     }
 }
