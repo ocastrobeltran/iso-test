@@ -1,4 +1,19 @@
 {{-- filepath: resources/views/filament/pages/horas-clockify.blade.php --}}
+
+@foreach ($horas as $hora)
+    <div>
+        <p>Proyecto: {{ $hora['project'] }}</p>
+        <p>Cliente: {{ $hora['client'] }}</p>
+        <p>Descripción: {{ $hora['description'] }}</p>
+        <p>Horas reportadas: {{ $hora['duration'] }}</p>
+        @if ($hora['alerta'] === 'Excedido')
+            <span class="alert alert-danger">¡Alerta! Horas excedidas.</span>
+        @else
+            <span class="alert alert-success">Horas dentro de límites.</span>
+        @endif
+    </div>
+@endforeach
+
 <x-filament::page>
     <form wire:submit.prevent="consultarHoras" class="space-y-4">
         <div class="flex flex-wrap gap-4">

@@ -48,13 +48,13 @@ class TicketResource extends Resource
                             ->columnSpanFull(),
                         Select::make('contrato_id')
                             ->label('Contrato')
-                            ->options(Contrato::pluck('siglas','id')
-                                ->map(fn($siglas, $id) => (string) ($siglas ?? "Contrato #{$id}"))
+                            ->options(Contrato::pluck('cotizacion','id')
+                                ->map(fn($cotizacion, $id) => (string) ($cotizacion ?? "Contrato #{$id}"))
                                 ->filter(fn($label) => $label !== null)
                                 ->toArray())
                             ->searchable()
                             ->required()
-                            ->reactive()  // Ensure reactivity for dependent fields if needed
+                            ->reactive()  
                             ->visible(fn ($context) => in_array($context, ['create', 'edit'])),
                     ])->columns(2),
 
@@ -174,7 +174,7 @@ class TicketResource extends Resource
                     ->label('Título')
                     ->searchable()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('contrato.siglas')
+                Tables\Columns\TextColumn::make('contrato.cotizacion')
                     ->label('Contrato')
                     ->searchable()
                     ->sortable()
@@ -254,7 +254,17 @@ class TicketResource extends Resource
                     ->schema([
                         TextEntry::make('titulo')->label('Título'),
                         TextEntry::make('descripcion')->label('Descripción')->columnSpanFull(),
-                        TextEntry::make('estado')->label('Estado'),
+                        TextEntry::make('estado')
+                            ->label('Estado')
+                            ->badge()
+                            ->color(fn ($state) => match($state) {
+                                'Abierto' => 'danger',
+                                'En Progreso' => 'warning',
+                                'Resuelto' => 'success',
+                                'Devuelto' => 'warning',
+                                'Cerrado' => 'gray',
+                                default => 'gray',
+                            }),
                         TextEntry::make('contrato.titulo')
                             ->label('Contrato')
                             ->formatStateUsing(function ($state, $record) {
@@ -342,7 +352,7 @@ class TicketResource extends Resource
                 Section::make('Solución y Comentarios')
                     ->schema([
                         TextEntry::make('solucion')->label('Solución')->columnSpanFull(),
-                        TextEntry::make('comentarios')
+                        TextEntry::make('comentarios_formateados')
                             ->label('Comentarios')
                             ->html()
                             ->columnSpanFull(),

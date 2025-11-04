@@ -43,7 +43,7 @@ class ProyectoResource extends Resource
                         'Planeación' => 'Planeación',
                         'En ejecución' => 'En ejecución',
                         'QA' => 'QA',
-                        'Finalizado' => 'Finalizado',
+                        // 'Finalizado' => 'Finalizado',
                         'Suspendido' => 'Suspendido',
                         'Cancelado' => 'Cancelado',
                     ])
@@ -84,7 +84,7 @@ class ProyectoResource extends Resource
                         }
                         $contrato = $record->contrato;
                         $cliente = $contrato->cliente ? $contrato->cliente->name : 'Sin cliente';
-                        return "Contrato #{$contrato->id} (Cliente: {$cliente}, Horas: {$contrato->total_horas})";
+                        return "Contrato #{$contrato->cotizacion} (Cliente: {$cliente}, Horas: {$contrato->total_horas})";
                     })
                     ->visible(fn ($context) => $context === 'view')
                     ->columnSpanFull(),
@@ -94,7 +94,7 @@ class ProyectoResource extends Resource
                         Contrato::with('cliente')->get()->mapWithKeys(function ($contrato) {
                             $cliente = $contrato->cliente ? $contrato->cliente->name : 'Sin cliente';
                             return [
-                                $contrato->id => "Contrato #{$contrato->id} (Cliente: {$cliente}, Horas: {$contrato->total_horas})"
+                                $contrato->id => "Contrato {$contrato->cotizacion} (Cliente: {$cliente}, Horas: {$contrato->total_horas})"
                             ];
                         })
                     )
@@ -239,8 +239,17 @@ class ProyectoResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('nombre')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('estado')
-                    ->searchable(),
+                Tables\Columns\BadgeColumn::make('estado')
+                    ->searchable()
+                    ->sortable()
+                    ->colors([
+                        'primary' => ['Inicio'],
+                        'secondary' => ['Planeación'],
+                        'success' => ['En ejecución', 'Finalizado'],
+                        'info' => ['QA'],
+                        'warning' => ['Suspendido'],
+                        'danger' => ['Cancelado'],
+                    ]),
                 Tables\Columns\TextColumn::make('contrato.cliente.name')
                     ->label('Cliente')
                     ->default('Sin cliente'),
@@ -278,6 +287,14 @@ class ProyectoResource extends Resource
                 Tables\Columns\TextColumn::make('fecha_fin_planificada')
                     ->date()
                     ->sortable(),
+                Tables\Columns\BadgeColumn::make('cierre_status')
+                    ->label('Cierre')
+                    ->getStateUsing(fn ($record) => $record->cierre?->aprobado ? 'Aprobado' : ($record->cierre ? 'Pendiente Aprobación' : 'Pendiente'))
+                    ->color(fn ($state) => match ($state) {
+                        'Aprobado' => 'success',
+                        'Pendiente Aprobación' => 'warning',
+                        default => 'danger',
+                    }),
             ])
             ->filters([
                 // Filtro por estado
@@ -311,7 +328,7 @@ class ProyectoResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make()
-                    ->visible(fn ($record) => strtolower(trim($record->estado)) !== 'completado' && strtolower(trim($record->estado)) !== 'cancelado'),
+                    ->visible(fn ($record) => strtolower(trim($record->estado)) !== 'finalizado' && strtolower(trim($record->estado)) !== 'cancelado'),
                 Tables\Actions\ViewAction::make(),
             ])
             // ->bulkActions([

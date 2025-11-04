@@ -31,16 +31,11 @@ class EditTicket extends EditRecord
 
     protected function afterSave(): void
     {
-        $proyectoId = $this->data['proyecto_id'] ?? null;
-        if ($proyectoId) {
-            $this->record->proyectos()->sync([$proyectoId]);
-        }
-
         $nuevoComentario = $this->data['nuevo_comentario'] ?? null;
         if ($nuevoComentario) {
             $comentarios = $this->record->comentarios ?? [];
             $comentarios[] = [
-                'usuario_id' => auth()->user()->id,
+                'usuario_id' => auth()->user()->name ?? auth()->id(),
                 'contenido' => $nuevoComentario,
                 'fecha' => now()->toDateTimeString(),
             ];

@@ -20,7 +20,22 @@ class ProyectoResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
     protected static ?string $navigationGroup = 'Gestión de Proyectos';
     protected static ?string $navigationLabel = 'Proyectos';
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 3;
+
+    // Mostrar un badge con el conteo de proyectos del cliente autenticado
+    public static function getNavigationBadge(): ?string
+    {
+        $userId = auth()->id();
+        if (! $userId) {
+            return null;
+        }
+
+        $count = static::getModel()::whereHas('contratos', function ($q) use ($userId) {
+            $q->where('cliente_id', $userId);
+        })->count();
+
+        return (string) $count;
+    }
 
     public static function getEloquentQuery(): Builder
     {

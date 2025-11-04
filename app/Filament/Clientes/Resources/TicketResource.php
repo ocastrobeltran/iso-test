@@ -4,7 +4,7 @@ namespace App\Filament\Clientes\Resources;
 
 use App\Filament\Clientes\Resources\TicketResource\Pages;
 use App\Models\Ticket;
-use App\Models\Proyecto;
+use App\Models\Contrato;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -12,18 +12,32 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use App\Filament\Clientes\Resources\CalificacionResource;
+use Filament\Infolists\Components\Section;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Components\ViewEntry;
 
 class TicketResource extends Resource
 {
     protected static ?string $model = Ticket::class;
 
+    protected static ?string $navigationGroup = 'Gestión de Proyectos';
     protected static ?string $navigationLabel = 'Mis Tickets';
     protected static ?string $navigationIcon = 'heroicon-o-ticket';
+    protected static ?int $navigationSort = 2;
+
+    public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::where('estado', 'Abierto')->count();
+    }
 
     public static function getEloquentQuery(): Builder
     {
-        // Solo mostrar tickets del cliente autenticado
-        return parent::getEloquentQuery()->forCliente(auth()->id());
+        // Solo mostrar tickets donde el contrato pertenezca al cliente autenticado
+        return parent::getEloquentQuery()
+            ->whereHas('contrato', function ($q) {
+                $q->where('cliente_id', auth()->id());
+            })
+            ->with(['contrato.fees', 'contrato.proyectos']);
     }
 
     public static function form(Form $form): Form
@@ -40,14 +54,17 @@ class TicketResource extends Resource
                             ->visible(fn ($context) => $context === 'create'),
                         Forms\Components\Textarea::make('descripcion')
                             ->label('Descripción')
-                            ->visible(fn ($context) => $context === 'create'),
-                        Forms\Components\Select::make('proyecto_id')
-                            ->label('Proyecto')
+                            ->required()
+                            ->visible(fn ($context) => $context === 'create')
+                            ->columnSpanFull(),
+                        Forms\Components\Select::make('contrato_id')
+                            ->label('Contrato')
                             ->options(
-                                \App\Models\Proyecto::whereHas('contratos', function ($q) {
-                                    $q->where('cliente_id', auth()->id());
-                                })->pluck('nombre', 'id')
+                                Contrato::where('cliente_id', auth()->id())
+                                    ->get()
+                                    ->mapWithKeys(fn ($c) => [$c->id => $c->cotizacion ?? "Contrato #{$c->id}"])
                             )
+                            ->searchable()
                             ->required()
                             ->visible(fn ($context) => $context === 'create'),
                     ])->columns(2)
@@ -63,12 +80,29 @@ class TicketResource extends Resource
                         Forms\Components\Textarea::make('descripcion')
                             ->label('Descripción')
                             ->disabled()
-                            ->visible(fn ($context) => in_array($context, ['edit', 'view'])),
-                        Forms\Components\TextInput::make('proyecto_nombre')
-                            ->label('Proyecto')
+                            ->visible(fn ($context) => in_array($context, ['edit', 'view']))
+                            ->columnSpanFull(),
+                        Forms\Components\TextInput::make('contrato.cotizacion')
+                            ->label('Contrato')
                             ->disabled()
                             ->dehydrated(false)
-                            ->formatStateUsing(fn ($state, $record) => $record?->proyecto_nombre)
+                            ->formatStateUsing(fn ($state, $record) => $record?->contrato?->cotizacion ?? 'Sin contrato')
+                            ->visible(fn ($context) => in_array($context, ['edit', 'view'])),
+                        Forms\Components\TextInput::make('proyecto_fee_nombre')
+                            ->label('Proyecto / Fee')
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->formatStateUsing(function ($state, $record) {
+                                if (!$record?->contrato) return 'Sin asignar';
+                                // Prioriza fee si existe
+                                if ($record->contrato->fees->isNotEmpty()) {
+                                    return 'Fee: ' . $record->contrato->fees->first()->nombre;
+                                }
+                                if ($record->contrato->proyectos->isNotEmpty()) {
+                                    return 'Proyecto: ' . $record->contrato->proyectos->first()->nombre;
+                                }
+                                return 'Sin proyecto/fee';
+                            })
                             ->visible(fn ($context) => in_array($context, ['edit', 'view'])),
                     ])->columns(2)
                     ->visible(fn ($context) => in_array($context, ['edit', 'view'])),
@@ -85,7 +119,7 @@ class TicketResource extends Resource
                                 'Devuelto' => 'Devuelto',
                                 'Cerrado' => 'Cerrado',
                             ])
-                            ->disableOptionWhen(fn ($value) => $value === 'Resuelto' || $value === 'Abierto')
+                            ->disableOptionWhen(fn ($value) => in_array($value, ['Resuelto', 'Abierto', 'En Progreso']))
                             ->required()
                             ->reactive()
                             ->visible(fn ($context) => in_array($context, ['edit', 'view'])),
@@ -110,7 +144,8 @@ class TicketResource extends Resource
                         Forms\Components\Textarea::make('solucion')
                             ->label('Solución')
                             ->disabled()
-                            ->visible(fn ($context) => in_array($context, ['edit', 'view'])),
+                            ->visible(fn ($context) => in_array($context, ['edit', 'view']))
+                            ->columnSpanFull(),
                         Forms\Components\Textarea::make('nuevo_comentario')
                             ->label('Agregar comentario')
                             ->dehydrated(false)
@@ -138,14 +173,27 @@ class TicketResource extends Resource
                     ->sortable(),
                 Tables\Columns\BadgeColumn::make('estado')
                     ->colors([
-                        'danger' => 'Abierto',
-                        'danger' => 'Devuelto',
+                        'danger' => fn ($state) => in_array($state, ['Abierto', 'Devuelto']),
                         'warning' => 'En Progreso',
                         'success' => 'Resuelto',
-                        'secondary' => 'cerrado',
+                        'secondary' => 'Cerrado',
                     ]),
-                Tables\Columns\TextColumn::make('proyecto_nombre')
-                    ->label('Proyecto'),
+                Tables\Columns\TextColumn::make('contrato.cotizacion')
+                    ->label('Contrato')
+                    ->default('—')
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('proyecto_fee_nombre')
+                    ->label('Proyecto / Fee')
+                    ->getStateUsing(function ($record) {
+                        if (!$record->contrato) return '—';
+                        if ($record->contrato->fees->isNotEmpty()) {
+                            return 'Fee: ' . $record->contrato->fees->first()->nombre;
+                        }
+                        if ($record->contrato->proyectos->isNotEmpty()) {
+                            return 'Proyecto: ' . $record->contrato->proyectos->first()->nombre;
+                        }
+                        return '—';
+                    }),
                 Tables\Columns\TextColumn::make('fecha_creacion')
                     ->label('Creado')
                     ->dateTime()
@@ -165,6 +213,7 @@ class TicketResource extends Resource
                         'Abierto' => 'Abierto',
                         'En Progreso' => 'En Progreso',
                         'Resuelto' => 'Resuelto',
+                        'Devuelto' => 'Devuelto',
                         'Cerrado' => 'Cerrado',
                     ]),
             ])
@@ -184,19 +233,61 @@ class TicketResource extends Resource
             ]);
     }
 
-    public static function getViewFormSchema(): array
+    public static function infolist(\Filament\Infolists\Infolist $infolist): \Filament\Infolists\Infolist
     {
-        return [
-            \Filament\Forms\Components\TextEntry::make('titulo')->label('Título'),
-            \Filament\Forms\Components\TextEntry::make('descripcion')->label('Descripción'),
-            \Filament\Forms\Components\TextEntry::make('proyecto_nombre')->label('Proyecto'),
-            \Filament\Forms\Components\TextEntry::make('estado')->label('Estado'),
-            \Filament\Forms\Components\TextEntry::make('fecha_creacion')->label('Fecha de Creación'),
-            \Filament\Forms\Components\TextEntry::make('fecha_resolucion')->label('Fecha de Resolución'),
-            \Filament\Forms\Components\TextEntry::make('fecha_cierre')->label('Fecha de Cierre'),
-            \Filament\Forms\Components\Textarea::make('solucion')->label('Solución'),
-            \Filament\Forms\Components\Textarea::make('comentarios')->label('Comentarios'),
-        ];
+        return $infolist
+            ->schema([
+                Section::make('Información General')
+                    ->schema([
+                        TextEntry::make('titulo')->label('Título'),
+                        TextEntry::make('descripcion')->label('Descripción')->columnSpanFull(),
+                        TextEntry::make('estado')
+                            ->label('Estado')
+                            ->badge()
+                            ->color(fn ($state) => match($state) {
+                                'Abierto' => 'danger',
+                                'En Progreso' => 'warning',
+                                'Resuelto' => 'success',
+                                'Devuelto' => 'warning',
+                                'Cerrado' => 'gray',
+                                default => 'gray',
+                            }),
+                        TextEntry::make('contrato.cotizacion')->label('Contrato')->default('Sin contrato'),
+                        TextEntry::make('proyecto_fee')
+                            ->label('Proyecto / Fee')
+                            ->getStateUsing(function ($record) {
+                                if (!$record->contrato) return 'Sin asignar';
+                                if ($record->contrato->fees->isNotEmpty()) {
+                                    return 'Fee: ' . $record->contrato->fees->first()->nombre;
+                                }
+                                if ($record->contrato->proyectos->isNotEmpty()) {
+                                    return 'Proyecto: ' . $record->contrato->proyectos->first()->nombre;
+                                }
+                                return 'Sin proyecto/fee';
+                            }),
+                        TextEntry::make('fecha_creacion')->label('Fecha de Creación')->dateTime(),
+                        TextEntry::make('fecha_resolucion')->label('Fecha de Resolución')->dateTime(),
+                        TextEntry::make('fecha_cierre')->label('Fecha de Cierre')->dateTime(),
+                    ])
+                    ->columns(2)
+                    ->collapsible(),
+
+                Section::make('Solución')
+                    ->schema([
+                        TextEntry::make('solucion')->label('Solución')->columnSpanFull(),
+                    ])
+                    ->collapsible(),
+
+                Section::make('Comentarios')
+                    ->schema([
+                        TextEntry::make('comentarios_formateados')
+                            ->label('Comentarios')
+                            ->html()
+                            ->columnSpanFull(),
+                    ])
+                    ->collapsible()
+                    ->collapsed(false),
+            ]);
     }
 
     public static function getPages(): array

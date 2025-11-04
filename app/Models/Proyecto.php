@@ -260,4 +260,9 @@ class Proyecto extends Model
 
         return $html;
     }
+
+    public function cierre()
+    {
+        return $this->hasOne(\App\Models\ProyectoCierre::class, 'proyecto_id');
+    }
 }

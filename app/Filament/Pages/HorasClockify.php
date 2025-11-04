@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use Filament\Pages\Page;
 use App\Models\User;
 use Illuminate\Support\Carbon;
+use App\Models\Contrato;
 
 class HorasClockify extends Page
 {
@@ -81,6 +82,27 @@ class HorasClockify extends Page
                     ? round($this->iso8601ToSeconds($entry['timeInterval']['duration']) / 3600, 2)
                     : 0,
             ];
+        })->toArray();
+
+        // Obtener los contratos y sus horas reportadas
+        $contratos = Contrato::with('fees')->get()->map(function ($contrato) {
+            return [
+                'id' => $contrato->id,
+                'titulo' => $contrato->titulo,
+                'horas' => $contrato->calcularHorasReportadas(),
+            ];
+        });
+
+        $this->horas = collect($entries)->map(function ($entry) use ($projectsMap, $contratos) {
+            // ... código existente ...
+            
+            // Agregar lógica para verificar horas reportadas
+            $contrato = $contratos->firstWhere('id', $entry['contrato_id']);
+            if ($contrato) {
+                $entry['alerta'] = $contrato['horas']['reportadas'] > $contrato['horas']['asignadas'] ? 'Excedido' : 'Dentro de límites';
+            }
+
+            return $entry;
         })->toArray();
     }
 

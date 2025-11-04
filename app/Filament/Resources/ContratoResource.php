@@ -3,7 +3,6 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\ContratoResource\Pages;
-use App\Filament\Resources\ContratoResource\RelationManagers;
 use App\Models\Contrato;
 use App\Models\User;
 use Filament\Forms;
@@ -11,10 +10,11 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
-use Filament\Tables\Columns\TextColumn;
-
+use Filament\Infolists\Infolist;
+use Filament\Infolists\Components\Section;
+use Filament\Infolists\Components\Grid as InfoGrid;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Components\ViewEntry;
 
 class ContratoResource extends Resource
 {
@@ -116,62 +116,6 @@ class ContratoResource extends Resource
                         'OK para facturar' => 'OK para facturar',
                     ])
                     ->required(),
-                // Forms\Components\Select::make('tipo_usuario')
-                //     ->label('Tipo de usuario')
-                //     ->options([
-                //         'cliente' => 'Cliente',
-                //         'proveedor' => 'Proveedor',
-                //     ])
-                //     ->required()
-                //     ->live()
-                //     ->helperText('Recuerde: El cliente o proveedor debe estar registado previamente.')
-                //     ->visible(fn ($context) => $context === 'create'),
-
-                // Forms\Components\Select::make('cliente_id')
-                //     ->label('Cliente')
-                //     ->relationship(
-                //         name: 'cliente',
-                //         titleAttribute: 'name',
-                //         modifyQueryUsing: function ($query, $get) {
-                //             $tipo = $get('tipo_usuario');
-                //             if ($tipo === 'cliente') {
-                //                 $query->where('rol', 'cliente');
-                //             }
-                //         }
-                //     )
-                //     ->searchable()
-                //     ->preload()
-                //     ->live()
-                //     ->required(fn ($get) => $get('tipo_usuario') === 'cliente')
-                //     ->visible(fn ($get, $context) => $get('tipo_usuario') === 'cliente' && $context === 'create')
-                //     ->disabled(fn ($get, $context) => !$get('tipo_usuario') || $context !== 'create'),
-
-                // Forms\Components\Select::make('proveedors')
-                //     ->label('Proveedor')
-                //     // ->multiple()
-                //     ->relationship('proveedors', 'nombre')
-                //     ->preload()
-                //     ->searchable()
-                //     ->nullable()
-                //     ->visible(fn ($get) => $get('tipo_usuario') === 'proveedor'),
-
-                // Forms\Components\Placeholder::make('cliente_view')
-                //     ->label('Cliente')
-                //     ->content(fn ($record) =>
-                //         $record->cliente?->name ?? 'Sin cliente'
-                //     )
-                //     ->visible(fn ($context, $record) =>
-                //         $context === 'view' && $record->cliente
-                //     ),
-
-                // Forms\Components\Placeholder::make('proveedor_view')
-                //     ->label('Proveedor')
-                //     ->content(fn ($record) =>
-                //         $record->proveedors?->pluck('nombre')->implode(', ') ?: 'Sin proveedor'
-                //     )
-                //     ->visible(fn ($context, $record) =>
-                //         $context === 'view' && $record->proveedors && $record->proveedors->count() > 0
-                //     ),
             ]);
     }
 
@@ -238,13 +182,43 @@ class ContratoResource extends Resource
             ->actions([
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\ViewAction::make(),
-            ])
-            // ->bulkActions([
-            //     Tables\Actions\BulkActionGroup::make([
-            //         Tables\Actions\DeleteBulkAction::make(),
-            //     ]),
-            // ])
-            ;
+            ]);
+    }
+
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist
+            ->schema([
+                Section::make('Resumen')
+                    ->schema([
+                        InfoGrid::make(2)->schema([
+                            TextEntry::make('titulo')->label('Título')->icon('heroicon-o-document-text'),
+                            TextEntry::make('cotizacion')->label('Cotización')->icon('heroicon-o-tag'),
+                            TextEntry::make('cliente.name')->label('Cliente')->default('—')->icon('heroicon-o-user'),
+                            TextEntry::make('total_horas')->label('Total de horas')->icon('heroicon-o-clock'),
+                            TextEntry::make('valor')->label('Valor')->money('COP')->icon('heroicon-o-cash'),
+                            TextEntry::make('estado_factura')->label('Estado Factura')->badge()->icon('heroicon-o-check-circle'),
+                        ]),
+                        TextEntry::make('recursos_list')
+                            ->label('Recursos asignados')
+                            ->getStateUsing(fn ($record) =>
+                                $record->recursos && $record->recursos->count()
+                                    ? $record->recursos->map(fn($r) => $r->name . ' (' . ($r->pivot->horas_asignadas ?? 0) . 'h)')->implode(', ')
+                                    : 'Sin recursos asignados'
+                            )
+                            ->columnSpanFull(),
+                    ])
+                    ->collapsible(),
+
+                Section::make('Métricas de Horas (Clockify)')
+                    ->schema([
+                        ViewEntry::make('metricas_clockify')
+                            ->view('filament.infolists.contrato-metricas-clockify')
+                            ->columnSpanFull(),
+                    ])
+                    ->collapsible()
+                    ->collapsed(false),
+            ]);
     }
 
     public static function getRelations(): array

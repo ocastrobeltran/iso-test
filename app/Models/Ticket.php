@@ -191,35 +191,65 @@ class Ticket extends Model
         return null;
     }
 
-    public function getComentariosAttribute($value)
+    // public function getComentariosAttribute($value)
+    // {
+    //     if (empty($value)) {
+    //         return 'Sin comentarios';
+    //     }
+    //     // Si es JSON, decodifica
+    //     if (is_string($value)) {
+    //         $comentarios = json_decode($value, true);
+    //     } else {
+    //         $comentarios = $value;
+    //     }
+    //     // Si no es array, fuerza a string
+    //     if (!is_array($comentarios)) {
+    //         return (string) $value;
+    //     }
+    //     // Si es array vacío
+    //     if (empty($comentarios)) {
+    //         return 'Sin comentarios';
+    //     }
+    //     // Formatea cada comentario como HTML, obteniendo el nombre del usuario
+    //     return collect($comentarios)->map(function ($comentario) {
+    //         if (!is_array($comentario)) {
+    //             return '- ' . (string)$comentario;
+    //         }
+    //         $fecha = $comentario['fecha'] ?? '';
+    //         $usuario_id = $comentario['usuario_id'] ?? ($comentario['user_id'] ?? null);
+    //         $usuario_nombre = $usuario_id ? \App\Models\User::find($usuario_id)?->name ?? 'Desconocido' : 'Desconocido';
+    //         $contenido = $comentario['contenido'] ?? '';
+    //         return "<b>{$fecha}</b> [{$usuario_nombre}]: {$contenido} <br>";
+    //     })->implode('<br>');
+    // }
+
+    public function getComentariosFormateadosAttribute()
     {
-        if (empty($value)) {
-            return 'Sin comentarios';
-        }
-        // Si es JSON, decodifica
-        if (is_string($value)) {
-            $comentarios = json_decode($value, true);
-        } else {
-            $comentarios = $value;
-        }
-        // Si no es array, fuerza a string
-        if (!is_array($comentarios)) {
-            return (string) $value;
-        }
-        // Si es array vacío
+        $comentarios = $this->attributes['comentarios'] ?? null;
+        
         if (empty($comentarios)) {
             return 'Sin comentarios';
         }
-        // Formatea cada comentario como HTML, obteniendo el nombre del usuario
+        
+        // Si es JSON string, decodifica
+        if (is_string($comentarios)) {
+            $comentarios = json_decode($comentarios, true);
+        }
+        
+        if (!is_array($comentarios) || empty($comentarios)) {
+            return 'Sin comentarios';
+        }
+        
+        // Formatea cada comentario como HTML
         return collect($comentarios)->map(function ($comentario) {
             if (!is_array($comentario)) {
                 return '- ' . (string)$comentario;
             }
             $fecha = $comentario['fecha'] ?? '';
             $usuario_id = $comentario['usuario_id'] ?? ($comentario['user_id'] ?? null);
-            $usuario_nombre = $usuario_id ? \App\Models\Usuario::find($usuario_id)?->nombre ?? 'Desconocido' : 'Desconocido';
+            $usuario_nombre = $usuario_id ? \App\Models\User::find($usuario_id)?->name ?? 'Desconocido' : 'Desconocido';
             $contenido = $comentario['contenido'] ?? '';
-            return "<b>{$fecha}</b> [{$usuario_nombre}]: {$contenido} <br>";
+            return "<b>{$fecha}</b> [{$usuario_nombre}]: {$contenido}";
         })->implode('<br>');
     }
 

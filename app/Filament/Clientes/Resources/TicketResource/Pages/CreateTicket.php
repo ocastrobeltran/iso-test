@@ -1,5 +1,4 @@
 <?php
-// app/Filament/Clientes/Resources/TicketResource/Pages/CreateTicket.php
 
 namespace App\Filament\Clientes\Resources\TicketResource\Pages;
 
@@ -19,14 +18,8 @@ class CreateTicket extends CreateRecord
 
     protected function afterCreate(): void
     {
-        $ticket = $this->record;
-        $proyectoId = $this->data['proyecto_id'];
-
-        // Asociar el ticket al proyecto
-        $ticket->proyectos()->attach($proyectoId);
-
         // Asociar el ticket al cliente autenticado
-        $ticket->users()->attach(auth()->id(), ['rol' => 'cliente']);
+        $this->record->users()->attach(auth()->id(), ['rol' => 'cliente']);
     }
 
     protected function getRedirectUrl(): string
