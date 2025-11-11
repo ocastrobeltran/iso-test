@@ -10,6 +10,8 @@ use App\Models\Contrato;
 class HorasClockify extends Page
 {
     protected static ?string $navigationIcon = 'heroicon-o-clock';
+    protected static ?string $navigationGroup = 'Reportes y Dashboards';
+    protected static ?int $navigationSort = 6;
     protected static string $view = 'filament.pages.horas-clockify';
 
     public ?int $userId = null;

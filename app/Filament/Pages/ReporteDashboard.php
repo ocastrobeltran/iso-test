@@ -15,6 +15,8 @@ class ReporteDashboard extends Page
 {
     protected static ?string $navigationIcon = 'heroicon-o-chart-bar';
     protected static ?string $navigationLabel = 'Reportes y KPIs';
+    protected static ?string $navigationGroup = 'Reportes y Dashboards';
+    protected static ?int $navigationSort = 5;
     protected static string $view = 'filament.pages.reporte-dashboard';
 
     // Filtros
